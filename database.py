@@ -1,5 +1,4 @@
 import sqlite3
-import json
 
 
 DATABASE_PATH = 'telegram.db'
@@ -32,6 +31,8 @@ def get_reviews():
     return reviews
 
 def book_appointment(user_id, doctor_id, service_id, date, time):
+    """Записывает данные о новой записи (id пользователя, id доктора, id услуги, дату и время) в таблицу appointments
+     базы данных, возвращая True в случае успеха и False в случае ошибки."""
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     try:
@@ -49,6 +50,7 @@ def book_appointment(user_id, doctor_id, service_id, date, time):
         conn.close()
 
 def get_dates():
+    """Возвращает список дат."""
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT date FROM doctors")
@@ -57,6 +59,7 @@ def get_dates():
     return dates
 
 def get_times():
+    """Возвращает список времени."""
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT time FROM doctors")
@@ -65,6 +68,7 @@ def get_times():
     return times
 
 def get_doctor_by_id(doctor_id):
+    """Извлекает данные доктора из таблицы “doctors” по его ID и возвращает их в виде словаря."""
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     try:
@@ -81,6 +85,7 @@ def get_doctor_by_id(doctor_id):
         conn.close()
 
 def get_service_name(service_id):
+    """Извлекает название услуги из таблицы “services” по её ID и возвращает его в виде строки."""
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     try:

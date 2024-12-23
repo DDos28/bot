@@ -3,14 +3,13 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, ConversationHandler
 from telegram import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 import database
-import datetime
 
 CHOOSING_DOCTOR = 1
 CHOOSING_SERVICE = 2
 CHOOSING_DATE_TIME = 3
 CONFIRMATION = 4
 
-BOT_TOKEN = ':'
+BOT_TOKEN = ''
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -19,12 +18,14 @@ logging.basicConfig(
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Отправляет пользователю сообщение “Выберите действие:” с клавиатурой главного меню."""
     reply_markup = create_main_menu_keyboard()
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Выберите действие:",
                                    reply_markup=reply_markup)
 
 
 def create_main_menu_keyboard():
+    """Создает клавиатуру главного меню."""
     button_doctors = InlineKeyboardButton("Список врачей", callback_data='doctors')
     button_services = InlineKeyboardButton("Список услуг", callback_data='services')
     button_appointment = InlineKeyboardButton("Записаться на прием", callback_data='appointment')
@@ -40,6 +41,7 @@ def create_main_menu_keyboard():
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает нажатия кнопок, полученные от пользователя."""
     query = update.callback_query
     await query.answer()
     if query.data == 'doctors':
@@ -63,6 +65,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def choose_doctor(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Извлекает список врачей из базы данных, формирует Inline-клавиатуру с кнопками, каждая из которых
+    представляет врача, и отправляет сообщение пользователю с просьбой выбрать врача, устанавливая состояние диалога
+    CHOOSING_DOCTOR."""
     doctors = database.get_doctors()
     keyboard = []
     for doctor in doctors:
@@ -73,6 +78,9 @@ async def choose_doctor(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def doctor_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает выбор врача пользователем, сохраняет ID выбранного врача в контексте, извлекает данные выбранного
+     врача, выводит сообщение с именем врача и предлагает выбрать услугу, формируя соответствующую клавиатуру, переходя
+     в состояние CHOOSING_SERVICE, или сообщает об ошибке, если врач не найден, завершая диалог."""
     query = update.callback_query
     await query.answer()
     doctor_id = int(query.data.split('_')[1])
@@ -92,6 +100,9 @@ async def doctor_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
 async def service_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает выбор услуги пользователем, сохраняет ID выбранной услуги в контексте, извлекает имя выбранной
+    услуги, выводит сообщение с именем услуги и переходит к выбору даты и времени, вызывая choose_datetime, или сообщает
+    об ошибке, если услуга не найдена, завершая диалог."""
     query = update.callback_query
     await query.answer()
     service_id = int(query.data.split('_')[1])
@@ -106,6 +117,9 @@ async def service_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def choose_datetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Извлекает список доступных дат из базы данных, формирует Inline-клавиатуру с кнопками, каждая из которых
+    представляет дату, и отправляет сообщение пользователю с просьбой выбрать дату, устанавливая состояние диалога
+    CHOOSING_DATE_TIME."""
     dates = database.get_dates()
     keyboard = [[InlineKeyboardButton(str(date), callback_data=f'date_{date}')] for date in dates]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -113,6 +127,9 @@ async def choose_datetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return CHOOSING_DATE_TIME
 
 async def date_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает выбор даты пользователем, сохраняет выбранную дату в контексте, извлекает список доступного времени
+    из базы данных, формирует Inline-клавиатуру с кнопками, представляющими время, и обновляет сообщение с просьбой
+    выбрать время, сохраняя состояние диалога CHOOSING_DATE_TIME."""
     query = update.callback_query
     context.user_data['date'] = query.data.split('_')[1]
     await query.answer()
@@ -123,30 +140,13 @@ async def date_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return CHOOSING_DATE_TIME
 
 async def time_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает выбор времени пользователем, сохраняет его в контексте, выводит сообщение с выбранными датой и
+    временем и завершает диалог."""
     query = update.callback_query
     context.user_data['time'] = query.data.split('_')[1]
     await query.answer()
     await query.edit_message_text(text=f"Вы выбрали дату: {context.user_data['date']}\nВремя: {context.user_data['time']}")
-    return CONFIRMATION
-
-async def confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    if 'date' in context.user_data and 'time' in context.user_data:
-        success = database.book_appointment(
-            update.effective_user.id,
-            context.user_data['doctor_id'],
-            context.user_data['service_id'],
-            context.user_data['date'],
-            context.user_data['time']
-        )
-        if success:
-            await query.edit_message_text(text="Запись успешно создана!")
-        else:
-            await query.edit_message_text(text="Ошибка при создании записи. Попробуйте еще раз.")
-    else:
-        await query.edit_message_text(text="Ошибка: Не все данные выбраны.")
-
+    return ConversationHandler.END
 
 if __name__ == '__main__':
     application = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -157,7 +157,6 @@ if __name__ == '__main__':
             CHOOSING_SERVICE: [CallbackQueryHandler(service_selected, pattern='^service_')],
             CHOOSING_DATE_TIME: [CallbackQueryHandler(date_selected, pattern='^date_'),
                                  CallbackQueryHandler(time_selected, pattern='^time_')],
-            CONFIRMATION: [CallbackQueryHandler(confirmation, pattern='^confirm$')]
         },
         fallbacks=[],
     )

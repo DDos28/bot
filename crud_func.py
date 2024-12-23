@@ -4,12 +4,14 @@ connection = sqlite3.connect('telegram.db')
 cursor = connection.cursor()
 
 def initiate_db():
+    """Создает необходимые таблицы в БД."""
     cursor.execute('''CREATE TABLE IF NOT EXISTS doctors
         (id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         specialty TEXT NOT NULL,
         experience INTEGER,
-        schedule)
+        date,
+        time)
         ''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS services
         (id INTEGER PRIMARY KEY AUTOINCREMENT,
